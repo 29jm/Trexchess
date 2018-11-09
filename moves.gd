@@ -49,13 +49,13 @@ func distance(h1, h2):
 func line_from(hex_pos, direction, n=-1):
 	"""Returns the n-th positions from hex_pos in the specified direction, and
 	the positions till the edge of the edge of the board if n is omitted.
-	`direction` is and integer from the Lines or Diagonals enums.
+	`direction` is a Vector2. Use the `axial_direction` function.
 	If n is specified and the line goes outside the board, it is truncated."""
 	var line = [hex_pos]
 	n = n if n != -1 else 2*board_radius # max distance on the board
 
 	for i in range(n - 1):
-		hex_pos += axial_direction(direction)
+		hex_pos += direction
 		if distance(Vector2(), hex_pos) > board_radius:
 			return line
 		line.append(hex_pos)
@@ -75,5 +75,11 @@ func disk(center, radius):
 	for i in range(1, radius+1):
 		hexs += ring(center, i)
 	return hexs
+
+func rotate(h, angle=120): # rotates around the center only
+	var c = axial_to_cube(h)
+	for i in range(int(angle/60)):
+		c = Vector3(-c.y, -c.z, -c.x)
+	return cube_to_axial(c)
 
 # Do not implement piece moves here

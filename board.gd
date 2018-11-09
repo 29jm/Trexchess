@@ -19,32 +19,31 @@ func _ready():
 
 func reset():
 	var piece = Piece.instance() # used only to access piece types
-	var starting_hexs = [Vector2(-5, 5), Vector2(-6, 6), Vector2(-7, 7)]
+	var start_hexs = [Vector2(-5, 5), Vector2(-6, 6), Vector2(-7, 7)]
 	var types_by_line = [
-		[
-			piece.Type.Pawn, piece.Type.Pawn, piece.Type.Pawn,
-			piece.Type.Pawn, piece.Type.Pawn, piece.Type.Pawn],
-		[
-			piece.Type.Pawn, piece.Type.Bishop, piece.Type.Lanceman,
+		[ piece.Type.Pawn, piece.Type.Pawn, piece.Type.Pawn,
+			piece.Type.Pawn, piece.Type.Pawn, piece.Type.Pawn ],
+		[ piece.Type.Pawn, piece.Type.Bishop, piece.Type.Lanceman,
 			piece.Type.Bishop, piece.Type.Lanceman, piece.Type.Bishop,
-			piece.Type.Pawn
-		],
-		[
-			piece.Type.Canon, piece.Type.Rook, piece.Type.Knight,
+			piece.Type.Pawn ],
+		[ piece.Type.Canon, piece.Type.Rook, piece.Type.Knight,
 			piece.Type.King, piece.Type.Queen, piece.Type.Knight,
-			piece.Type.Rook, piece.Type.Canon
-		]
+			piece.Type.Rook, piece.Type.Canon ]
 	]
 
-	for i in range(3):
-		var types = types_by_line[i]
-		var line = Moves.line_from(starting_hexs[i], Moves.Lines.E, types.size())
-		for j in range(types.size()):
-			add_piece_at(line[j], types[j])
+	for rot in [0, 120, 240]:
+		for i in range(3):
+			var color = [piece.White, piece.Grey, piece.Black][rot / 120]
+			var types = types_by_line[i]
+			var start = Moves.rotate(start_hexs[i], rot)
+			var dir = Moves.rotate(Moves.axial_direction(Moves.Lines.E), rot)
+			var line = Moves.line_from(start, dir, types.size())
+			for j in range(types.size()):
+				add_piece_at(line[j], types[j], color)
 
-func add_piece_at(h, type):
+func add_piece_at(h, type, color):
 	var piece = Piece.instance()
-	piece.place(h, type)
+	piece.place(h, type, color)
 	piece.add_to_group("pieces")
 	add_child(piece)
 
@@ -56,7 +55,7 @@ func piece_at(h):
 
 func move_piece(h1, h2):
 	var piece = piece_at(h1)
-	piece.place(h2, piece.type)
+	piece.place(h2, piece.type, piece.color)
 
 func highlight_possible_moves(h):
 	# TODO: if none possible, reset current_selection = Vector2()
