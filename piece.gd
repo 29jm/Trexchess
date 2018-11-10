@@ -70,7 +70,15 @@ func possible_moves():
 		var rot = color * 120 # yeaahhhh... about that...
 		var dir1 = Moves.rotate(Moves.axial_direction(Moves.Lines.NNE), rot)
 		var dir2 = Moves.rotate(Moves.axial_direction(Moves.Lines.NNW), rot)
-		moves = [hex_pos + dir1, hex_pos + dir2]
+		moves += [hex_pos + dir1, hex_pos + dir2]
+		# canon moves
+		for h in Moves.ring(hex_pos, 1):
+			var neighbor = get_parent().piece_at(h)
+			if neighbor and neighbor.type == Canon:
+				var dir = hex_pos - neighbor.hex_pos
+				var canon_moves = line_till_piece(hex_pos, dir)
+				if canon_moves.size() >= 1:
+					moves.append(canon_moves[-1])
 	elif type == Canon:
 		moves += Moves.ring(hex_pos, 1)
 	elif type == Lanceman:
