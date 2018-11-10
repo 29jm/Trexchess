@@ -56,6 +56,21 @@ func reset():
 func color_to_move():
 	return [White, Grey, Black][step % 3]
 
+func piece_eat(h1, h2):
+	var jails = [ # the index is the color
+		[Vector2(7, 2), Moves.axial_direction(Moves.Lines.E)],
+		[Vector2(9, -7), Moves.axial_direction(Moves.Lines.SSE)],
+		[Vector2(-9, 0), Moves.axial_direction(Moves.Lines.NNE)] ]
+	var eater = piece_at(h1)
+	var eaten = piece_at(h2)
+	var jail_name = "jail"+str(eater.color)
+	var place_in_jail = get_tree().get_nodes_in_group(jail_name).size()
+
+	eaten.add_to_group(jail_name)
+	eaten.remove_from_group("pieces")
+	eaten.move(jails[eater.color][0] + place_in_jail*jails[eater.color][1])
+	eater.move(h2)
+
 func add_piece_at(h, type, color):
 	var piece = Piece.instance()
 	piece.place(h, type, color)
@@ -83,20 +98,19 @@ func highlight_possible_moves(h, enable=true):
 		highlight_hexagon(move, enable)
 
 func on_hexagon_clicked(hex_pos):
-	print("hexagon clicked at ", hex_pos)
 	var piece = piece_at(hex_pos)
 	var previous = piece_at(current_selection)
 
 	# warning: organigram strongly recommanded before modifying
 	# warning: order of operations (highlighting, moves) matters here
+	# TODO: simplify the (highlighting, selected) coupling
 	if piece:
 		if piece.color != color_to_move():
 			if previous != null:
 				if previous.can_move(piece.hex_pos):
 					highlight_possible_moves(previous.hex_pos, false)
 					current_selection = Invalid
-					previous.move(piece.hex_pos)
-					# TODO: eat it
+					piece_eat(previous.hex_pos, piece.hex_pos)
 					step += 1
 				highlight_possible_moves(previous.hex_pos, false)
 				current_selection = Invalid
