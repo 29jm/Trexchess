@@ -4,15 +4,15 @@ extends Node
 
 const board_radius = 7
 const hex_size = 35
-var QVec = Vector2(hex_size*1.47, 0)
-var RVec = Vector2(hex_size*1.47/2, hex_size*1.28)
+var QVec = Vector2(hex_size*1.473, 0)
+var RVec = Vector2(hex_size*1.47/2, hex_size*1.29)
 
 enum Lines {
 	E = 0, NNE = 1, NNW = 2, W = 3, SSW = 4, SSE = 5
 }
 
 enum Diagonals {
-	NE = 6, N = 7, NW = 8, SW = 9, SE = 10
+	NE = 6, N = 7, NW = 8, SW = 9, S = 10, SE = 11
 }
 
 func axial_to_cube(h):
@@ -76,10 +76,14 @@ func disk(center, radius):
 		hexs += ring(center, i)
 	return hexs
 
-func rotate(h, angle=120): # rotates around the center only
-	var c = axial_to_cube(h)
+func rotate(h, angle=120, center=Vector2()):
+	if angle < 0:
+		angle = round(fposmod(angle, 360))
+	center = axial_to_cube(center)
+	var cube = axial_to_cube(h)
+	var vec = cube - center
 	for i in range(int(angle/60)):
-		c = Vector3(-c.y, -c.z, -c.x)
-	return cube_to_axial(c)
+		vec = Vector3(-vec.y, -vec.z, -vec.x)
+	return cube_to_axial(center+vec)
 
 # Do not implement piece moves here
