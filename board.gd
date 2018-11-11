@@ -123,9 +123,20 @@ func move_checks_color(h1, h2, color):
 		other_piece.add_to_group("pieces")
 	return res
 
+func is_in_checkmate(color):
+	# `color` is in checkmate if no piece can move to save their attacked king
+	if not is_in_check(color):
+		return false
+	var moves = []
+	for piece in get_tree().get_nodes_in_group("pieces"):
+		if piece.color == color and not piece.possible_moves().empty():
+			return false
+	return true
+
 func on_hexagon_clicked(hex_pos):
 	var piece = piece_at(hex_pos)
 	var previous = piece_at(current_selection)
+	var playing_color = color_to_move()
 
 	# warning: organigram strongly recommanded before modifying
 	# warning: order of operations (highlighting, moves) matters here
@@ -160,3 +171,9 @@ func on_hexagon_clicked(hex_pos):
 			if previous.can_move(hex_pos):
 				previous.move(hex_pos)
 				step += 1
+
+	var possibly_checked = [White, Grey, Black]
+	possibly_checked.erase(playing_color)
+	for color in possibly_checked:
+		if is_in_checkmate(color):
+			print("Color ", color, " has lost. Winner is ", playing_color)
