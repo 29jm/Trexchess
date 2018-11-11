@@ -63,7 +63,11 @@ func line_till_piece(start_h, dir):
 				return line
 	return line
 
-func possible_moves():
+func possible_moves(check_detection=true):
+	"""Returns the list of positions this piece can reach, including those
+	reached by taking an enemy piece, and by default excluding those that would
+	put the piece's color's king in check. This check detection can be turned
+	off to avoid infinite recursion in check tests."""
 	var moves = [] # friendly-fire measures taken at the end
 
 	if type == Pawn:
@@ -105,6 +109,11 @@ func possible_moves():
 			if idx != -1:
 				moves.remove(idx)
 
-	# TODO: remove moves that would check `color`'s king (req: check detection)
+	if check_detection:
+		var filtered_moves = []
+		for move in moves:
+			if not get_parent().move_checks_color(hex_pos, move, color):
+				filtered_moves.append(move)
+		return filtered_moves
 
 	return moves

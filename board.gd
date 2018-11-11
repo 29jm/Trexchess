@@ -6,7 +6,7 @@ var Hexagon = preload("res://hexagon.tscn")
 const Invalid = Vector2(42, 42)
 
 var current_selection = Invalid # currently selected position, or Invalid
-var step = 0 # 0->White to move, ..., 2 -> Black, ..., n -> colors[n%3]
+var step = 0 # 0 -> White to move, ..., 2 -> Black, ..., n -> colors[n%3]
 
 # TODO: build singleton "Chess" holding colors and pawn types
 enum {
@@ -39,9 +39,11 @@ func reset():
 
 	for piece in get_tree().get_nodes_in_group("pieces"):
 		piece.queue_free()
+	for piece in get_tree().get_nodes_in_group("jailed_pieces"):
+		piece.queue_free()
 
-	# TODO: map rotation, jailed pieces...
 	step = 0
+	# TODO: undo map rotation, ...
 
 	for rot in [0, 120, 240]:
 		for i in range(3):
@@ -67,6 +69,7 @@ func piece_eat(h1, h2):
 	var place_in_jail = get_tree().get_nodes_in_group(jail_name).size()
 
 	eaten.add_to_group(jail_name)
+	eaten.add_to_group("jailed_pieces") # for ease of deletion only
 	eaten.remove_from_group("pieces")
 	eaten.move(jails[eater.color][0] + place_in_jail*jails[eater.color][1])
 	eater.move(h2)
@@ -96,6 +99,29 @@ func highlight_possible_moves(h, enable=true):
 	var possible_moves = piece.possible_moves()
 	for move in possible_moves:
 		highlight_hexagon(move, enable)
+
+func is_in_check(color):
+	var king_h = Vector2()
+	for piece in get_tree().get_nodes_in_group("pieces"):
+		if piece.type == piece.King and piece.color == color:
+			king_h = piece.hex_pos
+	for piece in get_tree().get_nodes_in_group("pieces"):
+		if piece.color != color and king_h in piece.possible_moves(false):
+			return true
+	return false
+
+func move_checks_color(h1, h2, color):
+	"""Returns whether the h1->h2 move would put `color` in check."""
+	var moving_piece = piece_at(h1)
+	var other_piece = piece_at(h2)
+	moving_piece.move(h2)
+	if other_piece:
+		other_piece.remove_from_group("pieces")
+	var res = is_in_check(color)
+	moving_piece.move(h1)
+	if other_piece:
+		other_piece.add_to_group("pieces")
+	return res
 
 func on_hexagon_clicked(hex_pos):
 	var piece = piece_at(hex_pos)
