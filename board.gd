@@ -7,6 +7,7 @@ const Invalid = Vector2(42, 42)
 
 var current_selection = Invalid # currently selected position, or Invalid
 var step = 0 # 0 -> White to move, ..., 2 -> Black, ..., n -> colors[n%3]
+var step_list = [] # note that a step is a third of a move
 
 # TODO: build singleton "Chess" holding colors and pawn types
 enum {
@@ -24,6 +25,13 @@ func _ready():
 		add_child(hex)
 
 	reset() # setup pieces
+
+func _input(event):
+	if event is InputEventKey and event.scancode == KEY_S:
+		var date = OS.get_datetime()
+		save_game(str(date["day"])+"-"+str(date["month"])+"_"+str(date["minute"])+".trx")
+	if event is InputEventKey and event.scancode == KEY_BACKSPACE:
+		reset()
 
 func reset():
 	var piece = Piece.instance() # used only to access piece types
@@ -43,6 +51,7 @@ func reset():
 		piece.queue_free()
 
 	step = 0
+	step_list = []
 	# TODO: undo map rotation, ...
 
 	for rot in [0, 120, 240]:
@@ -55,24 +64,41 @@ func reset():
 			for j in range(types.size()):
 				add_piece_at(line[j], types[j], color)
 
+func save_game(fname):
+	var file = File.new()
+	file.open(fname, file.WRITE)
+	var move_num = 1
+	for i in range(int(step_list.size()/3)+1):
+		file.store_string(str(i+1) + ". ")
+		for j in range(min(3, step_list.size()-3*i)): # may end at step % 3 != 0
+			file.store_string(str(step_list[3*i+j]) + " ")
+		file.store_string("\r\n")
+	file.close()
+
 func color_to_move():
 	return [White, Grey, Black][step % 3]
 
-func piece_eat(h1, h2):
+func piece_move(h1, h2):
+	"""Moves piece at h1 to h2, eating an enemy piece if necessary.
+	This functions also handles jailing eaten pieces and recording moves."""
 	var jails = [ # the index is the color
-		[Vector2(7, 2), Moves.axial_direction(Moves.Lines.E)],
+		[Vector2(7, 2), Moves.axial_direction(Moves.Lines.SSW)],
 		[Vector2(9, -7), Moves.axial_direction(Moves.Lines.SSE)],
 		[Vector2(-9, 0), Moves.axial_direction(Moves.Lines.NNE)] ]
 	var eater = piece_at(h1)
 	var eaten = piece_at(h2)
-	var jail_name = "jail"+str(eater.color)
-	var place_in_jail = get_tree().get_nodes_in_group(jail_name).size()
 
-	eaten.add_to_group(jail_name)
-	eaten.add_to_group("jailed_pieces") # for ease of deletion only
-	eaten.remove_from_group("pieces")
-	eaten.move(jails[eater.color][0] + place_in_jail*jails[eater.color][1])
+	if eaten:
+		var jail_name = "jail"+str(eater.color)
+		var place_in_jail = get_tree().get_nodes_in_group(jail_name).size()
+
+		eaten.add_to_group(jail_name)
+		eaten.add_to_group("jailed_pieces") # for ease of deletion only
+		eaten.remove_from_group("pieces")
+		eaten.move(jails[eater.color][0] + place_in_jail*jails[eater.color][1])
+
 	eater.move(h2)
+	step_list.append([h1, h2])
 
 func add_piece_at(h, type, color):
 	var piece = Piece.instance()
@@ -127,7 +153,6 @@ func is_in_checkmate(color):
 	# `color` is in checkmate if no piece can move to save their attacked king
 	if not is_in_check(color):
 		return false
-	var moves = []
 	for piece in get_tree().get_nodes_in_group("pieces"):
 		if piece.color == color and not piece.possible_moves().empty():
 			return false
@@ -147,7 +172,7 @@ func on_hexagon_clicked(hex_pos):
 				if previous.can_move(piece.hex_pos):
 					highlight_possible_moves(previous.hex_pos, false)
 					current_selection = Invalid
-					piece_eat(previous.hex_pos, piece.hex_pos)
+					piece_move(previous.hex_pos, piece.hex_pos)
 					step += 1
 				highlight_possible_moves(previous.hex_pos, false)
 				current_selection = Invalid
@@ -169,7 +194,7 @@ func on_hexagon_clicked(hex_pos):
 			highlight_possible_moves(previous.hex_pos, false)
 			current_selection = Invalid
 			if previous.can_move(hex_pos):
-				previous.move(hex_pos)
+				piece_move(previous.hex_pos, hex_pos)
 				step += 1
 
 	var possibly_checked = [White, Grey, Black]
