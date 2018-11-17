@@ -9,6 +9,9 @@ var current_selection = Invalid # currently selected position, or Invalid
 var step = 0 # 0 -> White to move, ..., 2 -> Black, ..., n -> colors[n%3]
 var step_list = [] # note that a step is a third of a move
 
+var escape_time = false
+var liberation_move = [Invalid, Invalid] # from, to
+
 # TODO: build singleton "Chess" holding colors and pawn types
 enum {
 	White = 0, Grey = 1, Black = 2
@@ -26,12 +29,37 @@ func _ready():
 
 	reset() # setup pieces
 
+	print("Shortcuts:")
+	print(" - 'S' saves the game to a file")
+	print(" - 'L' loads the saved game `replay.trx` (if it exists)")
+	print(" - 'U' takes back the last move")
+	print(" - 'R' resets the board")
+
 func _input(event):
-	if event is InputEventKey and event.scancode == KEY_S:
-		var date = OS.get_datetime()
-		save_game(str(date["day"])+"-"+str(date["month"])+"_"+str(date["minute"])+".trx")
-	if event is InputEventKey and event.scancode == KEY_BACKSPACE:
-		reset()
+	if event is InputEventKey and event.pressed:
+		if event.scancode == KEY_S:
+			var date = OS.get_datetime()
+			var fname = str(date["day"])+"-"
+			fname += str(date["month"])+"-"
+			fname += str(date["year"])+"-"
+			fname += str(date["minute"])+".trx"
+			if Loader.save_game(fname, step_list):
+				print("Game saved to file `%s`." % fname)
+			else:
+				print("Failed to save the game to `%s`.", fname)
+		if event.scancode == KEY_R:
+			print("New game.")
+			reset()
+		if event.scancode == KEY_U:
+			print("Undoing step ", step, " (move ", int(step/3)+1, ")")
+			undo_step()
+		if event.scancode == KEY_L:
+			var steps = Loader.load_game("replay.trx")
+			if not steps.empty():
+				print("Loading `replay.trx`.")
+				replay(steps)
+			else:
+				print("Failed to load `replay.trx`.")
 
 func reset():
 	var piece = Piece.instance() # used only to access piece types
@@ -50,9 +78,12 @@ func reset():
 	for piece in get_tree().get_nodes_in_group("jailed_pieces"):
 		piece.queue_free()
 
+	current_selection = Invalid
 	step = 0
 	step_list = []
-	# TODO: undo map rotation, ...
+	escape_time = false
+	liberation_move = [Invalid, Invalid]
+	# TODO: reset highlighting
 
 	for rot in [0, 120, 240]:
 		for i in range(3):
@@ -64,16 +95,19 @@ func reset():
 			for j in range(types.size()):
 				add_piece_at(line[j], types[j], color)
 
-func save_game(fname):
-	var file = File.new()
-	file.open(fname, file.WRITE)
-	var move_num = 1
-	for i in range(int(step_list.size()/3)+1):
-		file.store_string(str(i+1) + ". ")
-		for j in range(min(3, step_list.size()-3*i)): # may end at step % 3 != 0
-			file.store_string(str(step_list[3*i+j]) + " ")
-		file.store_string("\r\n")
-	file.close()
+func replay(step_sequence):
+	reset()
+	yield(get_tree(), "idle_frame") # wait for the new generation of pawns
+	for move in step_sequence:
+		piece_move(move[0], move[1])
+		if escape_time:
+			liberate_piece(move[2])
+
+func undo_step():
+	if step_list.empty():
+		return
+	step_list.pop_back()
+	replay(step_list)
 
 func color_to_move():
 	return [White, Grey, Black][step % 3]
@@ -85,19 +119,40 @@ func piece_move(h1, h2):
 		[Vector2(7, 2), Moves.axial_direction(Moves.Lines.SSW)],
 		[Vector2(9, -7), Moves.axial_direction(Moves.Lines.SSE)],
 		[Vector2(-9, 0), Moves.axial_direction(Moves.Lines.NNE)] ]
+	var liberating_lines = [
+		Moves.line_from(Vector2(0, -7), Moves.axial_direction(Moves.Lines.E)),
+		Moves.line_from(Vector2(-7, 0), Moves.axial_direction(Moves.Lines.SSE)),
+		Moves.line_from(Vector2(0, 7), Moves.axial_direction(Moves.Lines.NNE)),
+	]
 	var eater = piece_at(h1)
 	var eaten = piece_at(h2)
 
 	if eaten:
-		var jail_name = "jail"+str(eater.color)
+		var jail_name = "jail"+str(eaten.color)
 		var place_in_jail = get_tree().get_nodes_in_group(jail_name).size()
+		var h = jails[eaten.color][0] + place_in_jail*jails[eaten.color][1]
+		var hexagon = Hexagon.instance()
 
+		hexagon.place(h)
+		hexagon.add_to_group("jail_hexagons")
+		hexagon.connect("hexagon_clicked", self, "on_jailed_clicked", [hexagon])
+		add_child(hexagon)
 		eaten.add_to_group(jail_name)
-		eaten.add_to_group("jailed_pieces") # for ease of deletion only
+		eaten.add_to_group("jailed_pieces")
 		eaten.remove_from_group("pieces")
-		eaten.move(jails[eater.color][0] + place_in_jail*jails[eater.color][1])
+		eaten.move(h)
 
 	eater.move(h2)
+
+	# check for possible liberation: needs at least one non-pawn jailed piece
+	if eater.type == eater.Pawn and eater.hex_pos in liberating_lines[eater.color]:
+		for jailed in get_tree().get_nodes_in_group("jailed_pieces"):
+			if jailed.color == color_to_move() and jailed.type != jailed.Pawn:
+				escape_time = true
+				liberation_move[0] = h1
+				liberation_move[1] = h2
+				return
+	step += 1
 	step_list.append([h1, h2])
 
 func add_piece_at(h, type, color):
@@ -159,6 +214,9 @@ func is_in_checkmate(color):
 	return true
 
 func on_hexagon_clicked(hex_pos):
+	if escape_time:
+		return
+
 	var piece = piece_at(hex_pos)
 	var previous = piece_at(current_selection)
 	var playing_color = color_to_move()
@@ -173,7 +231,6 @@ func on_hexagon_clicked(hex_pos):
 					highlight_possible_moves(previous.hex_pos, false)
 					current_selection = Invalid
 					piece_move(previous.hex_pos, piece.hex_pos)
-					step += 1
 				highlight_possible_moves(previous.hex_pos, false)
 				current_selection = Invalid
 		else:
@@ -195,10 +252,32 @@ func on_hexagon_clicked(hex_pos):
 			current_selection = Invalid
 			if previous.can_move(hex_pos):
 				piece_move(previous.hex_pos, hex_pos)
-				step += 1
 
 	var possibly_checked = [White, Grey, Black]
 	possibly_checked.erase(playing_color)
 	for color in possibly_checked:
 		if is_in_checkmate(color):
 			print("Color ", color, " has lost. Winner is ", playing_color)
+
+func on_jailed_clicked(hexagon):
+	if not escape_time:
+		return
+	liberate_piece(hexagon.hex_pos)
+	hexagon.remove_from_group("jail_hexagons")
+	hexagon.queue_free()
+
+func liberate_piece(h):
+	for piece in get_tree().get_nodes_in_group("jailed_pieces"):
+		if piece.hex_pos == h and piece.color == color_to_move():
+			if piece.type == piece.Pawn:
+				return
+			step += 1
+			step_list.append([liberation_move[0], liberation_move[1], h])
+			piece_at(liberation_move[1]).queue_free()
+			piece.remove_from_group("jailed_pieces")
+			piece.remove_from_group("jail"+str(piece.color))
+			piece.add_to_group("pieces")
+			piece.move(liberation_move[1])
+			escape_time = false
+			liberation_move = [Invalid, Invalid]
+			return
