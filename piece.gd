@@ -83,10 +83,10 @@ func possible_moves(check_detection=true):
 				var canon_moves = line_till_piece(hex_pos, dir)
 				if canon_moves.size() >= 1:
 					moves.append(canon_moves[-1])
-	elif type == Canon:
-		moves += Moves.ring(hex_pos, 1)
-	elif type == Lanceman:
-		moves += Moves.ring(hex_pos, 1)
+	elif type == Canon or type == Lanceman or type == King:
+		for move in Moves.ring(hex_pos, 1):
+			if Moves.distance(Vector2(), move) <= Moves.board_radius:
+				moves.append(move)
 	elif type == Knight:
 		for rot in range(0, 360, 60):
 			moves.append(Moves.rotate(hex_pos+Vector2(3, -1), rot, hex_pos))
@@ -100,8 +100,6 @@ func possible_moves(check_detection=true):
 	elif type == Queen:
 		for dir_idx in range(Moves.Lines.E, Moves.Diagonals.SE+1):
 			moves += line_till_piece(hex_pos, Moves.axial_direction(dir_idx))
-	elif type == King:
-		moves += Moves.ring(hex_pos, 1)
 
 	for piece in get_tree().get_nodes_in_group("pieces"):
 		if piece.color == color:
