@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/king.png-d3086fb7de8f10a6fc30329ae8d39950.stex"
+path="res://.import/checkmate_screenshot.png-e3abf2ed8374f5c3c012c54afd406c2d.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://sources/king.png"
-dest_files=[ "res://.import/king.png-d3086fb7de8f10a6fc30329ae8d39950.stex" ]
+source_file="res://sources/checkmate_screenshot.png"
+dest_files=[ "res://.import/checkmate_screenshot.png-e3abf2ed8374f5c3c012c54afd406c2d.stex" ]
 
 [params]
 

@@ -73,10 +73,10 @@ func reset():
 			piece.Queen, piece.Knight, piece.Rook, piece.Canon ]
 	]
 
-	for piece in get_tree().get_nodes_in_group("pieces"):
-		piece.queue_free()
-	for piece in get_tree().get_nodes_in_group("jailed_pieces"):
-		piece.queue_free()
+	for p in get_tree().get_nodes_in_group("pieces"):
+		p.queue_free()
+	for p in get_tree().get_nodes_in_group("jailed_pieces"):
+		p.queue_free()
 
 	current_selection = Invalid
 	step = 0
